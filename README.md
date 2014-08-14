@@ -1,2 +1,4 @@
-spark-python-tests
-==================
+spark-tests
+===========
+
+Spark tests in python and scala.
