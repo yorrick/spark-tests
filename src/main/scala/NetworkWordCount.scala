@@ -1,9 +1,5 @@
-import org.apache.spark.streaming._
 import org.apache.spark.streaming.StreamingContext._
-
-import org.apache.spark.api.java.function._
 import org.apache.spark.streaming._
-import org.apache.spark.streaming.api._
 import org.apache.spark.streaming.dstream.DStream
 
 
@@ -15,7 +11,7 @@ object NetworkWordCount {
     val words = lines.flatMap(_.split(" "))
 
     // Count each word in each batch
-    val pairs = words.map(word => (word, 1))
+    val pairs: DStream[(String, Int)] = words.map(word => (word, 1))
     val wordCounts = pairs.reduceByKey(_ + _)
 
     // Print a few of the counts to the console

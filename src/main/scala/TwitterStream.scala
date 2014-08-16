@@ -1,14 +1,11 @@
 import java.io.File
+import com.typesafe.config.ConfigFactory
 
-import org.apache.spark.streaming._
-import org.apache.spark.streaming.StreamingContext._
-import org.apache.spark.api.java.function._
-import org.apache.spark.streaming._
-import org.apache.spark.streaming.api._
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+import StreamingContext._
+import org.apache.spark.SparkContext._
+import org.apache.spark.streaming.twitter._
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.twitter.TwitterUtils
-
-import com.typesafe.config.{Config, ConfigFactory}
 
 
 object TwitterStream {
@@ -22,15 +19,22 @@ object TwitterStream {
     System.setProperty("twitter4j.oauth.accessTokenSecret", conf.getString("accessTokenSecret"))
   }
 
-  val filters = Seq("scala")
-
   def main(args: Array[String]) {
     configureTwitterOAuth()
 
-    val ssc = new StreamingContext("local[2]", "TwitterStream", Seconds(5))
-    val stream = TwitterUtils.createStream(ssc, None, filters)
+    val interval = Seconds(5)
 
-    stream.print()
+    val ssc = new StreamingContext("local[4]", "TwitterStream", interval)
+    val stream = TwitterUtils.createStream(ssc, None, args)
+
+    val hashTags: DStream[String] = stream.flatMap(status => status.getText.split(" ").filter(_.startsWith("#")))
+
+    val pairs: DStream[(String, Int)] = hashTags.map(tag => (tag, 1))
+    val countByHashTag: DStream[(String, Int)] = pairs .reduceByKeyAndWindow(_ + _, Seconds(60))
+    val hashTagByCount: DStream[(Int, String)] = countByHashTag map {case (tag, count) => (count, tag)}
+    val topCounts60 = hashTagByCount.transform(_.sortByKey(false))
+
+    topCounts60.print()
 
     ssc.start()             // Start the computation
     ssc.awaitTermination()  // Wait for the computation to terminate
